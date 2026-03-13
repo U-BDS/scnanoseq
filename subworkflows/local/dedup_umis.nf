@@ -48,19 +48,17 @@ workflow DEDUP_UMIS {
                 BAMTOOLS_SPLIT ( in_bam )
                 ch_versions = ch_versions.mix(BAMTOOLS_SPLIT.out.versions.first())
                 ch_split_bam = BAMTOOLS_SPLIT.out.bam
-                    .map{
-                        meta, bam ->
-                            [bam]
+                    .map { meta, bam ->
+                        [bam]
                     }
                     .flatten()
-                    .map{
-                        bam ->
-                            def bam_basename = bam.toString().split('/')[-1]
-                            def split_bam_basename = bam_basename.split(/\./)
-                            def new_meta = [
-                                'id': split_bam_basename.take(split_bam_basename.size()-1).join("."),
-                            ]
-                            [ new_meta, bam ]
+                    .map { bam ->
+                        def bam_basename = bam.toString().split('/')[-1]
+                        def split_bam_basename = bam_basename.split(/\./)
+                        def new_meta = [
+                            'id': split_bam_basename.take(split_bam_basename.size()-1).join("."),
+                        ]
+                        [ new_meta, bam ]
                     }
 
             } else {
@@ -81,11 +79,10 @@ workflow DEDUP_UMIS {
                     in_bam
                         .join(in_bai)
                         .combine(GROUP_TRANSCRIPTS.out.grouped_transcripts.flatten())
-                        .map{
-                            meta, bam, bai, region ->
-                                def region_basename = region.toString().split('/')[-1]
-                                def split_region_basename = region_basename.split(/\./)
-                                [['id': meta.id + "." + split_region_basename[0]], bam, bai, region]
+                        .map { meta, bam, bai, region ->
+                            def region_basename = region.toString().split('/')[-1]
+                            def split_region_basename = region_basename.split(/\./)
+                            [['id': meta.id + "." + split_region_basename[0]], bam, bai, region]
                         }
                 )
                 ch_split_bam = SPLIT_BAM.out.split_bam
@@ -147,11 +144,10 @@ workflow DEDUP_UMIS {
             //
             SAMTOOLS_MERGE (
                     ch_dedup_bam
-                    .map{
-                        meta, bam ->
-                            def bam_basename = bam.toString().split('/')[-1]
-                            def split_bam_basename = bam_basename.split(/\./)
-                            def new_meta = [ 'id': split_bam_basename[0] ]
+                    .map { meta, bam ->
+                        def bam_basename = bam.toString().split('/')[-1]
+                        def split_bam_basename = bam_basename.split(/\./)
+                        def new_meta = [ 'id': split_bam_basename[0] ]
                         [ new_meta, bam ]
                     }
                     .groupTuple(),
