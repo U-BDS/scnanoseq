@@ -1,0 +1,89 @@
+nextflow_process {
+
+    name "Test Process CORRECT_BARCODES"
+    script "modules/local/correct_barcodes/main.nf"
+    process "CORRECT_BARCODES"
+
+    test("Should correct barcodes with barcode info and whitelist") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample_bc' ],
+                    file("${projectDir}/test-data/barcode_info.tsv", checkIfExists: false),
+                    file("${projectDir}/test-data/whitelist.txt", checkIfExists: false),
+                    file("${projectDir}/test-data/bc_count.txt", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert corrected_bc_info.size() == 1
+                assert corrected_bc_info.get(0).endsWith('.corrected_bc_umi.tsv')
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should respect custom prefix") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'custom_prefix' ],
+                    file("${projectDir}/test-data/barcode_info.tsv", checkIfExists: false),
+                    file("${projectDir}/test-data/whitelist.txt", checkIfExists: false),
+                    file("${projectDir}/test-data/bc_count.txt", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.corrected_bc_info) {
+                assert size() == 1
+                assert path(get(0)).name == 'custom_prefix.corrected_bc_umi.tsv'
+            }
+        }
+
+    }
+
+    test("Should generate version information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_check' ],
+                    file("${projectDir}/test-data/barcode_info.tsv", checkIfExists: false),
+                    file("${projectDir}/test-data/whitelist.txt", checkIfExists: false),
+                    file("${projectDir}/test-data/bc_count.txt", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_text = path(get(0)).text
+                assert versions_text.contains('CORRECT_BARCODES')
+                assert versions_text.contains('python:')
+            }
+        }
+
+    }
+
+}

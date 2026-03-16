@@ -1,0 +1,89 @@
+nextflow_process {
+
+    name "Test Process TAG_BARCODES"
+    script "modules/local/tag_barcodes/main.nf"
+    process "TAG_BARCODES"
+
+    test("Should tag BAM file with barcode information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_tagging' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false),
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false),
+                    file("${projectDir}/test-data/corrected_bc.tsv", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert tagged_bam.size() == 1
+                assert tagged_bam.get(0).endsWith('.tagged.bam')
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should respect custom prefix for output BAM file") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'custom_tag' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false),
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false),
+                    file("${projectDir}/test-data/corrected_bc.tsv", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.tagged_bam) {
+                assert size() == 1
+                assert path(get(0)).name == 'custom_tag.tagged.bam'
+            }
+        }
+
+    }
+
+    test("Should generate python version information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_tag' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false),
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false),
+                    file("${projectDir}/test-data/corrected_bc.tsv", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('TAG_BARCODES')
+                assert versions_yaml.contains('python:')
+            }
+        }
+
+    }
+
+}

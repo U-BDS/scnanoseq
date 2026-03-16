@@ -1,0 +1,109 @@
+nextflow_workflow {
+
+    name "Test Workflow PREPARE_REFERENCE_FILES"
+    script "subworkflows/local/prepare_reference_files/main.nf"
+    workflow "PREPARE_REFERENCE_FILES"
+
+    test("Should decompress and index uncompressed reference files") {
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/test-data/genome.fasta", checkIfExists: false)
+                input[1] = file("${projectDir}/test-data/transcripts.fasta", checkIfExists: false)
+                input[2] = file("${projectDir}/test-data/annotation.gtf", checkIfExists: false)
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert prepped_genome_fasta.size() == 1
+                assert genome_fai.size() == 1
+                assert prepped_transcript_fasta.size() == 1
+                assert transcript_fai.size() == 1
+                assert prepped_gtf.size() == 1
+                assert versions.size() >= 1
+            }
+        }
+
+    }
+
+    test("Should decompress gzipped reference files") {
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/test-data/genome.fasta.gz", checkIfExists: false)
+                input[1] = file("${projectDir}/test-data/transcripts.fasta.gz", checkIfExists: false)
+                input[2] = file("${projectDir}/test-data/annotation.gtf.gz", checkIfExists: false)
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert prepped_genome_fasta.size() == 1
+                assert genome_fai.size() == 1
+                assert prepped_transcript_fasta.size() == 1
+                assert transcript_fai.size() == 1
+                assert prepped_gtf.size() == 1
+            }
+        }
+
+    }
+
+    test("Should handle zip compressed reference files") {
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/test-data/genome.fasta.zip", checkIfExists: false)
+                input[1] = file("${projectDir}/test-data/transcripts.fasta.zip", checkIfExists: false)
+                input[2] = file("${projectDir}/test-data/annotation.gtf.zip", checkIfExists: false)
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert prepped_genome_fasta.size() >= 1
+                assert genome_fai.size() == 1
+                assert prepped_transcript_fasta.size() >= 1
+                assert transcript_fai.size() == 1
+                assert prepped_gtf.size() >= 1
+            }
+        }
+
+    }
+
+    test("Should generate FAI indices for all FASTA files") {
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/test-data/genome.fasta", checkIfExists: false)
+                input[1] = file("${projectDir}/test-data/transcripts.fasta", checkIfExists: false)
+                input[2] = file("${projectDir}/test-data/annotation.gtf", checkIfExists: false)
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert path(genome_fai.get(0)).name.endsWith('.fai')
+                assert path(transcript_fai.get(0)).name.endsWith('.fai')
+            }
+        }
+
+    }
+
+}

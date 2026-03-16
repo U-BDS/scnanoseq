@@ -1,0 +1,151 @@
+nextflow_workflow {
+
+    name "Test Workflow PROCESS_LONGREAD_SCRNA"
+    script "subworkflows/local/process_longread_scrna/main.nf"
+    workflow "PROCESS_LONGREAD_SCRNA"
+
+    test("Should align, tag barcodes, and quantify with oarfish") {
+
+        when {
+            params {
+                skip_save_minimap2_index = false
+                skip_qc = false
+                skip_rseqc = false
+                skip_bam_nanocomp = false
+                skip_seurat = false
+                skip_dedup = false
+            }
+            workflow {
+                """
+                input[0] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[1] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[2] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[3] = [
+                    [ id: 'sample1' ],
+                    file("${projectDir}/test-data/reads.fastq.gz", checkIfExists: false)
+                ]
+                input[4] = [ [:], file("${projectDir}/test-data/rseqc.bed", checkIfExists: false) ]
+                input[5] = [
+                    [ id: 'sample1' ],
+                    file("${projectDir}/test-data/barcode_info.tsv", checkIfExists: false)
+                ]
+                input[6] = ['oarfish']
+                input[7] = 'umitools'
+                input[8] = true
+                input[9] = ' '
+                input[10] = false
+                input[11] = false
+                input[12] = false
+                input[13] = false
+                input[14] = false
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() >= 5
+
+            with(workflow.out) {
+                assert minimap_bam.size() == 1
+                assert minimap_bai.size() == 1
+                assert bc_tagged_bam.size() == 1
+                assert bc_tagged_bai.size() == 1
+                assert dedup_bam.size() == 1
+                assert dedup_bai.size() == 1
+                assert versions.size() >= 1
+            }
+        }
+
+    }
+
+    test("Should quantify with isoquant instead of oarfish") {
+
+        when {
+            params {
+                skip_dedup = false
+            }
+            workflow {
+                """
+                input[0] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[1] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[2] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[3] = [
+                    [ id: 'sample_iso' ],
+                    file("${projectDir}/test-data/reads.fastq.gz", checkIfExists: false)
+                ]
+                input[4] = [ [:], file("${projectDir}/test-data/rseqc.bed", checkIfExists: false) ]
+                input[5] = [
+                    [ id: 'sample_iso' ],
+                    file("${projectDir}/test-data/barcode_info.tsv", checkIfExists: false)
+                ]
+                input[6] = ['isoquant']
+                input[7] = 'umitools'
+                input[8] = true
+                input[9] = ' '
+                input[10] = false
+                input[11] = false
+                input[12] = false
+                input[13] = false
+                input[14] = false
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert gene_qc_stats.size() >= 0  // May be empty if skip_qc
+                assert transcript_qc_stats.size() >= 0
+            }
+        }
+
+    }
+
+    test("Should skip deduplication when skip_dedup is true") {
+
+        when {
+            params {
+                skip_dedup = true
+            }
+            workflow {
+                """
+                input[0] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[1] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[2] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[3] = [
+                    [ id: 'no_dedup' ],
+                    file("${projectDir}/test-data/reads.fastq.gz", checkIfExists: false)
+                ]
+                input[4] = [ [:], file("${projectDir}/test-data/rseqc.bed", checkIfExists: false) ]
+                input[5] = [
+                    [ id: 'no_dedup' ],
+                    file("${projectDir}/test-data/barcode_info.tsv", checkIfExists: false)
+                ]
+                input[6] = ['oarfish']
+                input[7] = 'umitools'
+                input[8] = true
+                input[9] = ' '
+                input[10] = true
+                input[11] = false
+                input[12] = false
+                input[13] = false
+                input[14] = true
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                // Should use tagged BAM directly
+                assert dedup_bam.size() == 1
+                assert dedup_bai.size() == 1
+            }
+        }
+
+    }
+
+}

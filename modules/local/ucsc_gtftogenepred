@@ -1,0 +1,98 @@
+nextflow_process {
+
+    name "Test UCSC_GTFTOGENEPRED"
+    script "modules/local/ucsc_gtftogenepred/main.nf"
+    process "UCSC_GTFTOGENEPRED"
+
+    test("Should convert GTF to GenePred format") {
+
+        setup {
+            // Create a temporary GTF file for testing
+            run("echo 'chr1\tensembl\tgene\t1000\t2000\t.\t+\t.\tgene_id \"GENE001\"; transcript_id \"TRANS001\";' > input.gtf")
+        }
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'test' ], file('input.gtf') ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out.genepred).match() },
+                { assert file(process.out.genepred.get(0)[0]).text.contains('GENE001') },
+                { assert process.out.versions.get(0)[0].text.contains('ucsc: 447') }
+            )
+        }
+    }
+
+    test("Should handle file prefix customization") {
+
+        setup {
+            run("echo 'chr1\tensembl\tgene\t1000\t2000\t.\t+\t.\tgene_id \"TEST\";' > custom.gtf")
+        }
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'custom_test' ], file('custom.gtf') ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert file(process.out.genepred.get(0)[0]).name == 'custom.genepred' }
+            )
+        }
+    }
+
+    test("Should generate version information") {
+
+        setup {
+            run("echo 'chr22\tensembl\texon\t1\t1000\t.\t.\t.\tgene_id \"VER_TEST\";' > version_test.gtf")
+        }
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'version' ], file('version_test.gtf') ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.versions != null },
+                { assert file(process.out.versions.get(0)[0]).exists() },
+                { assert file(process.out.versions.get(0)[0]).text.contains('UCSC_GTFTOGENEPRED') },
+                { assert file(process.out.versions.get(0)[0]).text.contains('447') }
+            )
+        }
+    }
+
+    test("Should work with stub execution") {
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'stub_test' ], file('test.gtf') ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert file(process.out.genepred.get(0)[0]).exists() },
+                { assert file(process.out.versions.get(0)[0]).exists() }
+            )
+        }
+    }
+
+}

@@ -1,0 +1,96 @@
+nextflow_process {
+
+    name "Test Process BLAZE"
+    script "../main.nf"
+    process "BLAZE"
+
+    tag "modules"
+    tag "modules_local"
+    tag "blaze"
+
+    test("blaze single cell barcode analysis") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of([
+                    [ id: 'test_sample', cell_count: 5000 ],
+                    [ file(params.modules_testdata_base_path + 'genomics/sarscov2/illumina/fastq/test_1.fastq.gz', checkIfExists: true) ]
+                ])
+                input[1] = file(params.modules_testdata_base_path + 'genomics/sarscov2/illumina/fastq/test_2.fastq.gz', checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assertAll (
+                { assert process.success },
+                { assert process.out.putative_bc[0][1] ==~ ".*/test_sample.putative_bc.no_header.csv" },
+                { assert process.out.whitelist[0][1] ==~ ".*/test_sample.whitelist.csv" },
+                { assert process.out.bc_count[0][1] ==~ ".*/test_sample.bc_count.txt" },
+                { assert process.out.knee_plot[0][1] ==~ ".*/test_sample.knee_plot.png" },
+                { assert path(process.out.putative_bc[0][1]).text.split('\n').size() > 1 },
+                { assert path(process.out.bc_count[0][1]).text.contains(',') },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+
+    }
+
+    test("blaze with custom args") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of([
+                    [ id: 'test_custom', cell_count: 10000 ],
+                    [ file(params.modules_testdata_base_path + 'genomics/sarscov2/illumina/fastq/test_1.fastq.gz', checkIfExists: true) ]
+                ])
+                input[1] = file(params.modules_testdata_base_path + 'genomics/sarscov2/illumina/fastq/test_2.fastq.gz', checkIfExists: true)
+                """
+            }
+            process.ext.args = "--recover-barcodes"
+            process.ext.prefix = "custom_prefix"
+        }
+
+        then {
+            assertAll (
+                { assert process.success },
+                { assert process.out.putative_bc[0][1] ==~ ".*/custom_prefix.putative_bc.no_header.csv" },
+                { assert process.out.whitelist[0][1] ==~ ".*/custom_prefix.whitelist.csv" },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+
+    }
+
+    test("blaze stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = Channel.of([
+                    [ id: 'test_stub', cell_count: 5000 ],
+                    [ file(params.modules_testdata_base_path + 'genomics/sarscov2/illumina/fastq/test_1.fastq.gz', checkIfExists: true) ]
+                ])
+                input[1] = file(params.modules_testdata_base_path + 'genomics/sarscov2/illumina/fastq/test_2.fastq.gz', checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assertAll (
+                { assert process.success },
+                { assert process.out.putative_bc[0][1] ==~ ".*/test_stub.putative_bc.no_header.csv" },
+                { assert process.out.whitelist[0][1] ==~ ".*/test_stub.whitelist.csv" },
+                { assert process.out.bc_count[0][1] ==~ ".*/test_stub.bc_count.txt" },
+                { assert process.out.knee_plot[0][1] ==~ ".*/test_stub.knee_plot.png" },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+
+    }
+
+}

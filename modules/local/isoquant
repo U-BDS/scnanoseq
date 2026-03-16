@@ -1,0 +1,102 @@
+nextflow_process {
+
+    name "Test Process ISOQUANT"
+    script "modules/local/isoquant/main.nf"
+    process "ISOQUANT"
+
+    test("Should quantify transcripts from BAM file") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample_iso' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false),
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false),
+                    file("${projectDir}/test-data/reference.fasta", checkIfExists: false),
+                    file("${projectDir}/test-data/reference.fai", checkIfExists: false),
+                    file("${projectDir}/test-data/annotation.gtf", checkIfExists: false)
+                ]
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out) {
+                assert read_assignments.size() == 1
+                assert transcript_tpm.size() == 1
+                assert transcript_counts.size() == 1
+                assert gene_tpm.size() == 1
+                assert gene_counts.size() == 1
+                assert log.size() == 1
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should include grouping category when provided") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'grouped_iso' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false),
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false),
+                    file("${projectDir}/test-data/reference.fasta", checkIfExists: false),
+                    file("${projectDir}/test-data/reference.fai", checkIfExists: false),
+                    file("${projectDir}/test-data/annotation.gtf", checkIfExists: false)
+                ]
+                input[1] = 'cell_type'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out) {
+                assert grouped_gene_tpm.size() == 1
+                assert grouped_gene_counts.size() == 1
+                assert grouped_transcript_tpm.size() == 1
+                assert grouped_transcript_counts.size() == 1
+            }
+        }
+
+    }
+
+    test("Should generate isoquant version information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_iso' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false),
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false),
+                    file("${projectDir}/test-data/reference.fasta", checkIfExists: false),
+                    file("${projectDir}/test-data/reference.fai", checkIfExists: false),
+                    file("${projectDir}/test-data/annotation.gtf", checkIfExists: false)
+                ]
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('isoquant:')
+            }
+        }
+
+    }
+
+}

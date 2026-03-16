@@ -1,0 +1,79 @@
+nextflow_process {
+
+    name "Test Process COMBINE_SEURAT_STATS"
+    script "modules/local/combine_seurat_stats/main.nf"
+    process "COMBINE_SEURAT_STATS"
+
+    test("Should combine multiple seurat stats files into single TSV") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    file("${projectDir}/test-data/sample1.csv", checkIfExists: false),
+                    file("${projectDir}/test-data/sample2.csv", checkIfExists: false),
+                    file("${projectDir}/test-data/sample3.csv", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert combined_stats.size() == 1
+                assert combined_stats.get(0).endsWith('.tsv')
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should generate valid versions.yml with cat version") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    file("${projectDir}/test-data/sample1.csv", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('COMBINE_SEURAT_STATS')
+                assert versions_yaml.contains('cat:')
+            }
+        }
+
+    }
+
+    test("Should pass custom arguments via task.ext.args") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    file("${projectDir}/test-data/sample1.csv", checkIfExists: false),
+                    file("${projectDir}/test-data/sample2.csv", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.combined_stats.size() == 1
+        }
+
+    }
+
+}

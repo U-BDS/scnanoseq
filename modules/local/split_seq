@@ -1,0 +1,112 @@
+nextflow_process {
+
+    name "Test Process SPLIT_SEQ"
+    script "modules/local/split_seq/main.nf"
+    process "SPLIT_SEQ"
+
+    test("Should split sequence file into chunks by read count") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_split' ],
+                    file("${projectDir}/test-data/reads.fastq.gz", checkIfExists: false)
+                ]
+                input[1] = '.fastq.gz'
+                input[2] = 10000
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert split_files.size() >= 1
+                assert split_files.every { path(it).name.endsWith('.fastq.gz') }
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should respect custom prefix and file extension") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'custom_prefix_seq' ],
+                    file("${projectDir}/test-data/sequences.fasta.gz", checkIfExists: false)
+                ]
+                input[1] = '.fasta.gz'
+                input[2] = 5000
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.split_files) {
+                assert size() >= 1
+                assert path(get(0)).name.startsWith('custom_prefix_seq')
+                assert path(get(0)).name.endsWith('.fasta.gz')
+            }
+        }
+
+    }
+
+    test("Should generate seqkit version information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_seqkit' ],
+                    file("${projectDir}/test-data/reads.fastq.gz", checkIfExists: false)
+                ]
+                input[1] = '.fastq.gz'
+                input[2] = 5000
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('SPLIT_SEQ')
+                assert versions_yaml.contains('seqkit:')
+            }
+        }
+
+    }
+
+    test("Should handle different split amounts") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'large_split' ],
+                    file("${projectDir}/test-data/large_reads.fastq.gz", checkIfExists: false)
+                ]
+                input[1] = '.fastq.gz'
+                input[2] = 100000
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.split_files.size() >= 1
+        }
+
+    }
+
+}

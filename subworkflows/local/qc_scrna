@@ -1,0 +1,111 @@
+nextflow_workflow {
+
+    name "Test Workflow QC_SCRNA"
+    script "subworkflows/local/qc_scrna/main.nf"
+    workflow "QC_SCRNA"
+
+    test("Should run SEURAT and COMBINE_SEURAT_STATS on MEX format data") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.from([
+                    [ id: 'sample1' ],
+                    [
+                        file("${projectDir}/test-data/matrix.mtx.gz", checkIfExists: false),
+                        file("${projectDir}/test-data/barcodes.tsv.gz", checkIfExists: false),
+                        file("${projectDir}/test-data/features.tsv.gz", checkIfExists: false)
+                    ]
+                ])
+                input[1] = Channel.from([
+                    [ id: 'sample1' ],
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ])
+                input[2] = "MEX"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() >= 2
+
+            with(workflow.out) {
+                assert seurat_stats.size() == 1
+                assert seurat_stats.get(0).endsWith('.tsv')
+                assert versions.size() >= 1
+            }
+        }
+
+    }
+
+    test("Should handle multiple samples in batch") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.from([
+                    [ id: 'sample1' ],
+                    [
+                        file("${projectDir}/test-data/matrix1.mtx.gz", checkIfExists: false),
+                        file("${projectDir}/test-data/barcodes1.tsv.gz", checkIfExists: false),
+                        file("${projectDir}/test-data/features1.tsv.gz", checkIfExists: false)
+                    ]
+                ],[
+                    [ id: 'sample2' ],
+                    [
+                        file("${projectDir}/test-data/matrix2.mtx.gz", checkIfExists: false),
+                        file("${projectDir}/test-data/barcodes2.tsv.gz", checkIfExists: false),
+                        file("${projectDir}/test-data/features2.tsv.gz", checkIfExists: false)
+                    ]
+                ])
+                input[1] = Channel.from([
+                    [ id: 'sample1' ],
+                    file("${projectDir}/test-data/flagstat1.txt", checkIfExists: false)
+                ],[
+                    [ id: 'sample2' ],
+                    file("${projectDir}/test-data/flagstat2.txt", checkIfExists: false)
+                ])
+                input[2] = "MEX"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                // Combined stats should be a single merged file
+                assert seurat_stats.size() == 1
+                assert versions.size() >= 1
+            }
+        }
+
+    }
+
+    test("Should handle TSV format data") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.from([
+                    [ id: 'sample_tsv' ],
+                    file("${projectDir}/test-data/counts.tsv", checkIfExists: false)
+                ])
+                input[1] = Channel.from([
+                    [ id: 'sample_tsv' ],
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ])
+                input[2] = "TSV"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.seurat_stats.size() == 1
+        }
+
+    }
+
+}

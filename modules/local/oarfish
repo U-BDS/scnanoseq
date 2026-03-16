@@ -1,0 +1,90 @@
+nextflow_process {
+
+    name "Test Process OARFISH"
+    script "modules/local/oarfish/main.nf"
+    process "OARFISH"
+
+    test("Should generate count matrix from BAM file with all required outputs") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_oarfish' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert features.size() == 1
+                assert features.get(0).endsWith('.tsv.gz')
+                assert barcodes.size() == 1
+                assert barcodes.get(0).endsWith('.tsv.gz')
+                assert mtx.size() == 1
+                assert mtx.get(0).endsWith('.mtx.gz')
+                assert meta_info.size() == 1
+                assert meta_info.get(0).endsWith('.json')
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should respect custom prefix for all output files") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'custom_oarfish' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out) {
+                assert path(features.get(0)).name.startsWith('custom_oarfish')
+                assert path(barcodes.get(0)).name.startsWith('custom_oarfish')
+                assert path(mtx.get(0)).name.startsWith('custom_oarfish')
+            }
+        }
+
+    }
+
+    test("Should generate oarfish version information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_oarfish' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('OARFISH')
+                assert versions_yaml.contains('oarfish:')
+            }
+        }
+
+    }
+
+}

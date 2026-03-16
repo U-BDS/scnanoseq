@@ -1,0 +1,89 @@
+nextflow_process {
+
+    name "Test Process SPLIT_BAM"
+    script "modules/local/split_bam/main.nf"
+    process "SPLIT_BAM"
+
+    test("Should split BAM file by contig") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_split_bam' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false),
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false),
+                    file("${projectDir}/test-data/contigs.txt", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert split_bam.size() >= 1
+                assert split_bam.every { path(it).name.endsWith('.split.bam') }
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should respect custom prefix for output files") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'custom_bam_split' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false),
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false),
+                    file("${projectDir}/test-data/contigs.txt", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.split_bam) {
+                assert size() >= 1
+                assert path(get(0)).name.startsWith('custom_bam_split')
+            }
+        }
+
+    }
+
+    test("Should generate python version information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_bam' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false),
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false),
+                    file("${projectDir}/test-data/contigs.txt", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('SPLIT_BAM')
+                assert versions_yaml.contains('python:')
+            }
+        }
+
+    }
+
+}

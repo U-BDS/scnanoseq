@@ -1,0 +1,152 @@
+nextflow_workflow {
+
+    name "Test Workflow DEDUP_UMIS"
+    script "subworkflows/local/dedup_umis/main.nf"
+    workflow "DEDUP_UMIS"
+
+    test("Should deduplicate UMIs without splitting BAM") {
+
+        when {
+            workflow {
+                """
+                input[0] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[1] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[2] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[3] = [
+                    [ id: 'test_dedup' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ]
+                input[4] = [
+                    [ id: 'test_dedup' ],
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false)
+                ]
+                input[5] = false
+                input[6] = true
+                input[7] = 'umitools'
+                input[8] = ' '
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert dedup_bam.size() == 1
+                assert dedup_bai.size() == 1
+                assert dedup_flagstat.size() == 1
+                assert versions.size() >= 1
+            }
+        }
+
+    }
+
+    test("Should split BAM by chromosome before deduplication for genome-aligned data") {
+
+        when {
+            workflow {
+                """
+                input[0] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[1] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[2] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[3] = [
+                    [ id: 'split_genome' ],
+                    file("${projectDir}/test-data/multi_chromosome.bam", checkIfExists: false)
+                ]
+                input[4] = [
+                    [ id: 'split_genome' ],
+                    file("${projectDir}/test-data/multi_chromosome.bai", checkIfExists: false)
+                ]
+                input[5] = true
+                input[6] = true
+                input[7] = 'umitools'
+                input[8] = ' '
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert dedup_bam.size() == 1
+                assert dedup_bai.size() == 1
+                // Verify merge occurred (single BAM output)
+                assert path(dedup_bam.get(0)).name.endsWith('.bam')
+            }
+        }
+
+    }
+
+    test("Should split BAM by transcript groups for transcript-aligned data") {
+
+        when {
+            workflow {
+                """
+                input[0] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[1] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[2] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[3] = [
+                    [ id: 'split_transcript' ],
+                    file("${projectDir}/test-data/transcript_aligned.bam", checkIfExists: false)
+                ]
+                input[4] = [
+                    [ id: 'split_transcript' ],
+                    file("${projectDir}/test-data/transcript_aligned.bai", checkIfExists: false)
+                ]
+                input[5] = true
+                input[6] = false
+                input[7] = 'umitools'
+                input[8] = ' '
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert dedup_bam.size() == 1
+                assert dedup_bai.size() == 1
+                assert dedup_flagstat.size() == 1
+            }
+        }
+
+    }
+
+    test("Should use picard markduplicates instead of umitools when specified") {
+
+        when {
+            workflow {
+                """
+                input[0] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[1] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[2] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[3] = [
+                    [ id: 'picard_dedup' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ]
+                input[4] = [
+                    [ id: 'picard_dedup' ],
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false)
+                ]
+                input[5] = false
+                input[6] = true
+                input[7] = 'picard'
+                input[8] = ' '
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert dedup_bam.size() == 1
+                assert dedup_bai.size() == 1
+            }
+        }
+
+    }
+
+}

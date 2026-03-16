@@ -1,0 +1,95 @@
+nextflow_process {
+
+    name "Test Process SEURAT"
+    script "modules/local/seurat/main.nf"
+    process "SEURAT"
+
+    test("Should process MEX format data") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_mex' ],
+                    [
+                        file("${projectDir}/test-data/matrix.mtx.gz", checkIfExists: false),
+                        file("${projectDir}/test-data/barcodes.tsv.gz", checkIfExists: false),
+                        file("${projectDir}/test-data/features.tsv.gz", checkIfExists: false)
+                    ],
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ]
+                input[1] = 'MEX'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert seurat_stats.size() == 1
+                assert seurat_stats.get(0).endsWith('.csv')
+                assert seurat_qcs.size() >= 1
+                assert seurat_rds.size() == 1
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should process TSV format data") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_tsv' ],
+                    file("${projectDir}/test-data/counts.tsv", checkIfExists: false),
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ]
+                input[1] = 'TSV'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out) {
+                assert seurat_stats.size() == 1
+                assert seurat_rds.size() == 1
+            }
+        }
+
+    }
+
+    test("Should generate version info for R and Seurat") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_test' ],
+                    file("${projectDir}/test-data/counts.tsv", checkIfExists: false),
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ]
+                input[1] = 'TSV'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('r-base:')
+                assert versions_yaml.contains('r-seurat:')
+            }
+        }
+
+    }
+
+}

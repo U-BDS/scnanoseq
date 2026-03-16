@@ -1,0 +1,129 @@
+nextflow_workflow {
+
+    name "Test Workflow QUANTIFY_SCRNA_ISOQUANT"
+    script "subworkflows/local/quantify_scrna_isoquant/main.nf"
+    workflow "QUANTIFY_SCRNA_ISOQUANT"
+
+    test("Should split references, run ISOQUANT, merge matrices, and perform QC") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.from([
+                    [ id: 'test_iso' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ])
+                input[1] = Channel.from([
+                    [ id: 'test_iso' ],
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false)
+                ])
+                input[2] = Channel.from([
+                    [ id: 'test_iso' ],
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ])
+                input[3] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[4] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[5] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[6] = false
+                input[7] = false
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() >= 8
+
+            with(workflow.out) {
+                assert gene_mtx.size() == 1
+                assert transcript_mtx.size() == 1
+                assert versions.size() >= 1
+            }
+        }
+
+    }
+
+    test("Should emit empty QC stats when skip_qc is true") {
+
+        when {
+            params {
+                skip_qc = true
+                skip_seurat = true
+            }
+            workflow {
+                """
+                input[0] = Channel.from([
+                    [ id: 'test_skip' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ])
+                input[1] = Channel.from([
+                    [ id: 'test_skip' ],
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false)
+                ])
+                input[2] = Channel.from([
+                    [ id: 'test_skip' ],
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ])
+                input[3] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[4] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[5] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[6] = true
+                input[7] = true
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert gene_qc_stats.size() == 0
+                assert transcript_qc_stats.size() == 0
+                assert gene_mtx.size() == 1
+                assert transcript_mtx.size() == 1
+            }
+        }
+
+    }
+
+    test("Should properly split and merge multi-chromosome data") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.from([
+                    [ id: 'multi_chr' ],
+                    file("${projectDir}/test-data/multi_chromosome.bam", checkIfExists: false)
+                ])
+                input[1] = Channel.from([
+                    [ id: 'multi_chr' ],
+                    file("${projectDir}/test-data/multi_chromosome.bai", checkIfExists: false)
+                ])
+                input[2] = Channel.from([
+                    [ id: 'multi_chr' ],
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ])
+                input[3] = [ [:], file("${projectDir}/test-data/genome.fasta", checkIfExists: false) ]
+                input[4] = [ [:], file("${projectDir}/test-data/genome.fai", checkIfExists: false) ]
+                input[5] = [ [:], file("${projectDir}/test-data/annotation.gtf", checkIfExists: false) ]
+                input[6] = false
+                input[7] = false
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out) {
+                assert gene_mtx.size() == 1
+                assert transcript_mtx.size() == 1
+                // Verify merged files exist
+                assert path(gene_mtx.get(0)).name.contains('merged')
+                assert path(transcript_mtx.get(0)).name.contains('merged')
+            }
+        }
+
+    }
+
+}

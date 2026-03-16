@@ -1,0 +1,92 @@
+nextflow_process {
+
+    name "Test Process MERGE_MTX"
+    script "modules/local/merge_mtx/main.nf"
+    process "MERGE_MTX"
+
+    test("Should merge multiple TSV files into single merged matrix") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_merge' ],
+                    [
+                        file("${projectDir}/test-data/matrix1.tsv", checkIfExists: false),
+                        file("${projectDir}/test-data/matrix2.tsv", checkIfExists: false),
+                        file("${projectDir}/test-data/matrix3.tsv", checkIfExists: false)
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert merged_mtx.size() == 1
+                assert merged_mtx.get(0).endsWith('.merged.tsv')
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should respect custom prefix") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'custom_prefix' ],
+                    [
+                        file("${projectDir}/test-data/matrix1.tsv", checkIfExists: false),
+                        file("${projectDir}/test-data/matrix2.tsv", checkIfExists: false)
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.merged_mtx) {
+                assert size() == 1
+                assert path(get(0)).name == 'custom_prefix.merged.tsv'
+            }
+        }
+
+    }
+
+    test("Should generate python version information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_test' ],
+                    [
+                        file("${projectDir}/test-data/matrix1.tsv", checkIfExists: false)
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('MERGE_MTX')
+                assert versions_yaml.contains('python:')
+            }
+        }
+
+    }
+
+}

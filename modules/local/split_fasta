@@ -1,0 +1,84 @@
+nextflow_process {
+
+    name "Test Process SPLIT_FASTA"
+    script "modules/local/split_fasta/main.nf"
+    process "SPLIT_FASTA"
+
+    test("Should split FASTA file by chromosome/sequence header") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_fasta' ],
+                    file("${projectDir}/test-data/multi_chr.fa", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert split_fasta.size() >= 1
+                assert split_fasta.every { path(it).name.endsWith('.split.fa') }
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should create one file per sequence in FASTA") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'multi_seq' ],
+                    file("${projectDir}/test-data/three_sequences.fa", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.split_fasta) {
+                assert size() >= 1
+                // Verify each output file has .split.fa extension
+                assert every { it.toString().endsWith('.split.fa') }
+            }
+        }
+
+    }
+
+    test("Should generate versions.yml with cat tool version") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_test' ],
+                    file("${projectDir}/test-data/test.fa", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('SPLIT_FASTA')
+                assert versions_yaml.contains('cat:')
+            }
+        }
+
+    }
+
+}

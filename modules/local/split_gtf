@@ -1,0 +1,55 @@
+nextflow_process {
+
+    name "Test Process SPLIT_GTF"
+    script "modules/local/split_gtf/main.nf"
+    process "SPLIT_GTF"
+
+    test("Should split GTF by chromosome") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_gtf' ],
+                    file("${projectDir}/test-data/annotation.gtf", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out) {
+                assert split_gtf.size() >= 1
+                assert split_gtf.every { path(it).name.endsWith('.split.gtf') }
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should generate one file per chromosome") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'multi_chr' ],
+                    file("${projectDir}/test-data/multi_chromosome.gtf", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.split_gtf) {
+                assert size() >= 1
+            }
+        }
+
+    }
+
+}

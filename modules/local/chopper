@@ -1,0 +1,107 @@
+nextflow_process {
+
+    name "Test Process CHOPPER"
+    script "modules/local/chopper/main.nf"
+    process "CHOPPER"
+
+    test("Should filter long reads with default parameters") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_sample' ],
+                    file("${projectDir}/test-data/reads.fastq.gz", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert reads.size() == 1
+                assert reads.get(0).endsWith('.filtered.fastq.gz')
+                assert versions.size() == 1
+                assert versions.get(0).readLines().any { it.contains('chopper:') }
+            }
+        }
+
+    }
+
+    test("Should handle split_amount parameter") {
+
+        when {
+            params {
+                split_amount = 100000
+            }
+            process {
+                """
+                input[0] = [
+                    [ id: 'split_test' ],
+                    file("${projectDir}/test-data/split.1.fastq.gz", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.reads) {
+                assert size() == 1
+                assert path(get(0)).name.contains('split_test')
+            }
+        }
+
+    }
+
+    test("Should pass custom arguments via task.ext.args") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'custom_args' ],
+                    file("${projectDir}/test-data/reads.fastq.gz", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.reads.size() == 1
+        }
+
+    }
+
+    test("Should generate valid versions.yml") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_test' ],
+                    file("${projectDir}/test-data/reads.fastq.gz", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('CHOPPER')
+                assert versions_yaml.contains('chopper:')
+            }
+        }
+
+    }
+
+}

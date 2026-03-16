@@ -1,0 +1,91 @@
+nextflow_process {
+
+    name "Test Process UCSC_GENEPREDTOBED"
+    script "modules/local/ucsc_genepredtobed/main.nf"
+    process "UCSC_GENEPREDTOBED"
+
+    test("Should convert GenePred format to BED format") {
+
+        when {
+            process {
+                """
+                input[0] = file("${projectDir}/test-data/genes.genepred", checkIfExists: false)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert bed.size() == 1
+                assert bed.get(0).endsWith('.bed')
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should use input filename as default prefix") {
+
+        when {
+            process {
+                """
+                input[0] = file("${projectDir}/test-data/annotation.genepred", checkIfExists: false)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.bed) {
+                assert size() == 1
+                assert path(get(0)).name == 'annotation.bed'
+            }
+        }
+
+    }
+
+    test("Should respect custom prefix parameter") {
+
+        when {
+            process {
+                """
+                input[0] = file("${projectDir}/test-data/genes.genepred", checkIfExists: false)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.bed.size() == 1
+        }
+
+    }
+
+    test("Should generate UCSC version information") {
+
+        when {
+            process {
+                """
+                input[0] = file("${projectDir}/test-data/genes.genepred", checkIfExists: false)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('UCSC_GENEPREDTOBED')
+                assert versions_yaml.contains('ucsc: 447')
+            }
+        }
+
+    }
+
+}

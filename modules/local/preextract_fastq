@@ -1,0 +1,114 @@
+nextflow_process {
+
+    name "Test Process PREEXTRACT_FASTQ"
+    script "modules/local/preextract_fastq/main.nf"
+    process "PREEXTRACT_FASTQ"
+
+    test("Should extract barcodes and generate barcode info and fastq") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_preextract' ],
+                    file("${projectDir}/test-data/reads.fastq", checkIfExists: false),
+                    file("${projectDir}/test-data/barcode_list.txt", checkIfExists: false)
+                ]
+                input[1] = 'SPLIT'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert barcode_info.size() == 1
+                assert barcode_info.get(0).endsWith('.putative_bc_umi.tsv')
+                assert extracted_fastq.size() == 1
+                assert extracted_fastq.get(0).endsWith('.extracted.fastq')
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should respect custom prefix for output files") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'custom_pre' ],
+                    file("${projectDir}/test-data/reads.fastq", checkIfExists: false),
+                    file("${projectDir}/test-data/barcode_list.txt", checkIfExists: false)
+                ]
+                input[1] = 'SPLIT'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out) {
+                assert path(barcode_info.get(0)).name == 'custom_pre.putative_bc_umi.tsv'
+                assert path(extracted_fastq.get(0)).name == 'custom_pre.extracted.fastq'
+            }
+        }
+
+    }
+
+    test("Should handle different barcode formats") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'format_test' ],
+                    file("${projectDir}/test-data/reads.fastq", checkIfExists: false),
+                    file("${projectDir}/test-data/barcode_list.txt", checkIfExists: false)
+                ]
+                input[1] = 'LINKED'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.barcode_info.size() == 1
+            assert process.out.extracted_fastq.size() == 1
+        }
+
+    }
+
+    test("Should generate python version information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'version_pre' ],
+                    file("${projectDir}/test-data/reads.fastq", checkIfExists: false),
+                    file("${projectDir}/test-data/barcode_list.txt", checkIfExists: false)
+                ]
+                input[1] = 'SPLIT'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('PREEXTRACT_FASTQ')
+                assert versions_yaml.contains('python:')
+            }
+        }
+
+    }
+
+}

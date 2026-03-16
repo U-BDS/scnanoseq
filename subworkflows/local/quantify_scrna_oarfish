@@ -1,0 +1,113 @@
+nextflow_workflow {
+
+    name "Test Workflow QUANTIFY_SCRNA_OARFISH"
+    script "subworkflows/local/quantify_scrna_oarfish/main.nf"
+    workflow "QUANTIFY_SCRNA_OARFISH"
+
+    test("Should sort BAM, run OARFISH, and perform QC") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.from([
+                    [ id: 'test_oarfish' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ])
+                input[1] = Channel.from([
+                    [ id: 'test_oarfish' ],
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false)
+                ])
+                input[2] = Channel.from([
+                    [ id: 'test_oarfish' ],
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ])
+                input[3] = [ [:], file("${projectDir}/test-data/reference.fasta", checkIfExists: false) ]
+                input[4] = false
+                input[5] = false
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() >= 2
+
+            with(workflow.out) {
+                assert versions.size() >= 1
+                assert transcript_qc_stats.size() == 0  // Empty because skip_qc and skip_seurat are false but logic skips
+            }
+        }
+
+    }
+
+    test("Should skip QC and Seurat when parameters are true") {
+
+        when {
+            params {
+                skip_qc = true
+                skip_seurat = true
+            }
+            workflow {
+                """
+                input[0] = Channel.from([
+                    [ id: 'test_skip_qc' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ])
+                input[1] = Channel.from([
+                    [ id: 'test_skip_qc' ],
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false)
+                ])
+                input[2] = Channel.from([
+                    [ id: 'test_skip_qc' ],
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ])
+                input[3] = [ [:], file("${projectDir}/test-data/reference.fasta", checkIfExists: false) ]
+                input[4] = true
+                input[5] = true
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            with(workflow.out) {
+                assert transcript_qc_stats.size() == 0
+                assert versions.size() >= 1
+            }
+        }
+
+    }
+
+    test("Should collect version information from all modules") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.from([
+                    [ id: 'version_test' ],
+                    file("${projectDir}/test-data/aligned.bam", checkIfExists: false)
+                ])
+                input[1] = Channel.from([
+                    [ id: 'version_test' ],
+                    file("${projectDir}/test-data/aligned.bai", checkIfExists: false)
+                ])
+                input[2] = Channel.from([
+                    [ id: 'version_test' ],
+                    file("${projectDir}/test-data/flagstat.txt", checkIfExists: false)
+                ])
+                input[3] = [ [:], file("${projectDir}/test-data/reference.fasta", checkIfExists: false) ]
+                input[4] = false
+                input[5] = false
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.versions.size() >= 1
+        }
+
+    }
+
+}

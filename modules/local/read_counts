@@ -1,0 +1,106 @@
+nextflow_process {
+
+    name "Test Process READ_COUNTS"
+    script "modules/local/read_counts/main.nf"
+    process "READ_COUNTS"
+
+    test("Should generate read count CSV from multiple FastQC and TSV inputs") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    file("${projectDir}/test-data/raw_fastqc_data1.txt", checkIfExists: false),
+                    file("${projectDir}/test-data/raw_fastqc_data2.txt", checkIfExists: false)
+                ]
+                input[1] = [
+                    file("${projectDir}/test-data/trim_fastqc_data1.txt", checkIfExists: false),
+                    file("${projectDir}/test-data/trim_fastqc_data2.txt", checkIfExists: false)
+                ]
+                input[2] = [
+                    file("${projectDir}/test-data/preextract_fastqc_data1.txt", checkIfExists: false),
+                    file("${projectDir}/test-data/preextract_fastqc_data2.txt", checkIfExists: false)
+                ]
+                input[3] = [
+                    file("${projectDir}/test-data/correct_sample.tsv", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out) {
+                assert read_counts.size() == 1
+                assert read_counts.get(0) == 'read_counts.csv'
+                assert versions.size() == 1
+            }
+        }
+
+    }
+
+    test("Should generate perl version information") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    file("${projectDir}/test-data/raw_fastqc_data.txt", checkIfExists: false)
+                ]
+                input[1] = [
+                    file("${projectDir}/test-data/trim_fastqc_data.txt", checkIfExists: false)
+                ]
+                input[2] = [
+                    file("${projectDir}/test-data/preextract_fastqc_data.txt", checkIfExists: false)
+                ]
+                input[3] = [
+                    file("${projectDir}/test-data/correct_sample.tsv", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+                assert size() == 1
+                def versions_yaml = path(get(0)).text
+                assert versions_yaml.contains('READ_COUNTS')
+                assert versions_yaml.contains('perl:')
+            }
+        }
+
+    }
+
+    test("Should pass custom arguments via task.ext.args") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    file("${projectDir}/test-data/raw_fastqc_data.txt", checkIfExists: false)
+                ]
+                input[1] = [
+                    file("${projectDir}/test-data/trim_fastqc_data.txt", checkIfExists: false)
+                ]
+                input[2] = [
+                    file("${projectDir}/test-data/preextract_fastqc_data.txt", checkIfExists: false)
+                ]
+                input[3] = [
+                    file("${projectDir}/test-data/correct_sample.tsv", checkIfExists: false)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.read_counts.size() == 1
+        }
+
+    }
+
+}

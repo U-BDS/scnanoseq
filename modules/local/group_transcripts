@@ -1,0 +1,128 @@
+nextflow_process {
+
+    name "Test Process GROUP_TRANSCRIPTS"
+    script "../main.nf"
+    process "GROUP_TRANSCRIPTS"
+
+    tag "modules"
+    tag "modules_local"
+    tag "group_transcripts"
+
+    test("group_transcripts default delimiter") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of([
+                    [ id: 'test' ],
+                    file(params.modules_testdata_base_path + 'genomics/sarscov2/fasta/test.fasta', checkIfExists: true)
+                ])
+                input[1] = Channel.of([
+                    [ id: 'test' ],
+                    file(params.modules_testdata_base_path + 'genomics/sarscov2/gff3/test.gff3', checkIfExists: true)
+                ])
+                input[2] = ""
+                """
+            }
+        }
+
+        then {
+            assertAll (
+                { assert process.success },
+                { assert process.out.grouped_transcripts[0] ==~ ".*/.*\\.transcripts\\.txt" },
+                { assert path(process.out.grouped_transcripts[0]).text.split('\n').size() > 0 },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+
+    }
+
+    test("group_transcripts custom delimiter") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of([
+                    [ id: 'test' ],
+                    file(params.modules_testdata_base_path + 'genomics/sarscov2/fasta/test.fasta', checkIfExists: true)
+                ])
+                input[1] = Channel.of([
+                    [ id: 'test' ],
+                    file(params.modules_testdata_base_path + 'genomics/sarscov2/gff3/test.gff3', checkIfExists: true)
+                ])
+                input[2] = "|"
+                """
+            }
+        }
+
+        then {
+            assertAll (
+                { assert process.success },
+                { assert process.out.grouped_transcripts[0] ==~ ".*/.*\\.transcripts\\.txt" },
+                { assert path(process.out.grouped_transcripts[0]).text.contains("|") },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+
+    }
+
+    test("group_transcripts with custom args") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of([
+                    [ id: 'test' ],
+                    file(params.modules_testdata_base_path + 'genomics/sarscov2/fasta/test.fasta', checkIfExists: true)
+                ])
+                input[1] = Channel.of([
+                    [ id: 'test' ],
+                    file(params.modules_testdata_base_path + 'genomics/sarscov2/gff3/test.gff3', checkIfExists: true)
+                ])
+                input[2] = ""
+                """
+            }
+            process.ext.args = "--verbose"
+        }
+
+        then {
+            assertAll (
+                { assert process.success },
+                { assert process.out.grouped_transcripts[0] ==~ ".*/.*\\.transcripts\\.txt" },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+
+    }
+
+    test("group_transcripts stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = Channel.of([
+                    [ id: 'test' ],
+                    file(params.modules_testdata_base_path + 'genomics/sarscov2/fasta/test.fasta', checkIfExists: true)
+                ])
+                input[1] = Channel.of([
+                    [ id: 'test' ],
+                    file(params.modules_testdata_base_path + 'genomics/sarscov2/gff3/test.gff3', checkIfExists: true)
+                ])
+                input[2] = ""
+                """
+            }
+        }
+
+        then {
+            assertAll (
+                { assert process.success },
+                { assert process.out.grouped_transcripts[0] ==~ ".*/.*\\.transcripts\\.txt" },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+
+    }
+
+}
