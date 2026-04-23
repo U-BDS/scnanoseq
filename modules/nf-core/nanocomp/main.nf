@@ -37,51 +37,51 @@ process NANOCOMP {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    if (prefix == ""){
-        prefixflag = ""
-    } else {
+    def prefixflag = ""
+    if (prefix != ""){
         prefixflag = "--prefix " + prefix
     }
 
     //determine input file type
-    filetypes = []
-    for (file in filelist){
-        tokenized_filename = file.getName().tokenize('.')
+    def filetypes = []
+    filelist.each { file ->
+        def tokenized_filename = file.getName().tokenize('.')
         if (tokenized_filename.size() < 2){
             throw new java.lang.IndexOutOfBoundsException("Every input file to nanocomp has to have a file ending.")
         }
 
-        first_namepart = true
-        extension_found = false
+        def first_namepart = true
+        def extension_found = false
 
-        for (namepart in tokenized_filename){
+        tokenized_filename.find { namepart ->
             if (namepart == ""){
-                continue
+                return false
             }
 
             // prevent the file name to be seen as extension
             if (first_namepart == true){
                 first_namepart = false
-                continue
+                return false
             }
 
             if (["fq","fastq"].contains(namepart)){
                 filetypes.add("fastq")
                 extension_found = true
-                break
+                return true
             } else if (["fasta", "fna", "ffn", "faa", "frn", "fa"].contains(namepart)) {
                 filetypes.add("fasta")
                 extension_found = true
-                break
+                return true
             } else if (namepart == "bam") {
                 filetypes.add("bam")
                 extension_found = true
-                break
+                return true
             } else if (namepart == "txt") {
                 filetypes.add("summary")
                 extension_found = true
-                break
+                return true
             }
+            return false
         }
 
         if (extension_found == false){
@@ -97,7 +97,7 @@ process NANOCOMP {
     if (filetypes.size() > 1){
         throw new java.lang.IllegalArgumentException("You gave different filetypes to NanoComp. Please use only *one* of fasta, fastq, bam or Nanopore sequencing summary.")
     }
-    filetype = filetypes[0]
+    def filetype = filetypes[0]
 
     """
     NanoComp \\
